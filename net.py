@@ -13,7 +13,7 @@ class encapsule(nn.Module):
         mod1 = nn.Conv2d(inp, out, 3, bias=False)
         mod2 = nn.Conv2d(out, out * 2, 3, bias=False)
         bn = nn.BatchNorm2d(out * 2)
-        maxpool = nn.Maxpool2d(2, stride=2)
+        maxpool = nn.MaxPool2d(2, stride=2)
 
     def forward(x):
         x = nn.ReLU(bn(mod1(x)))
@@ -38,6 +38,7 @@ class main_block(nn.Module):
 
 class conv_net(nn.Module):
     def __init__(self, inp, out, filters):
+        super(conv_net, self).__init__()
         up_mod = encapsule(inp, out)
         exp_mod = main_block(out, out * 2, filters)
         down_mod = encapsule(filters, filters * 2)
@@ -50,3 +51,6 @@ class conv_net(nn.Module):
         x = down_mod(x)
 
         return x
+
+def zero_ref():
+    return conv_net(3, 120, 120)  # in, out, filters

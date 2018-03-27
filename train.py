@@ -12,17 +12,18 @@ from torch.autograd import Variable
 import os
 import argparse
 
-from net import *
+from netto import *
+from utils import progress_bar
 
 parser = argparse.ArgumentParser(description='dense analysis')
-parser = add_argument('--lr', default=0.1, type=float, help='learning rate')
-parser = add_argument('--resume', '-r', action='store_true', help='restore from checkpoint')
-parser = add_argument('--model', '-m', type=str)
+parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
+parser.add_argument('--resume', '-r', action='store_true', help='restore from checkpoint')
+parser.add_argument('--model', '-m', type=str)
 args = parser.parse_args()
 
 use_cuda = torch.cuda.is_available()
 best_acc = 0
-epoch = 0
+start_epoch = 0
 
 print('==> Preparing data..')
 transform_train = transforms.Compose([transforms.RandomCrop(32, padding=4), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
@@ -47,7 +48,7 @@ if args.resume:
 
 else:
     print('==> Building model..')
-    net = conv_net(3, 120, 120)  # in, out, filters
+    net = zero_ref()
 
 
 if use_cuda:
@@ -91,6 +92,7 @@ def test(epoch):
     test_loss = 0
     correct = 0
     total = 0
+    counter = 0
     for batch_idx, (inputs, targets) in enumerate(testloader):
         if use_cuda:
             inputs, targets = inputs.cuda(), targets.cuda()
@@ -105,3 +107,23 @@ def test(epoch):
 
         progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                      % (test_loss / (batch_idx + 1), 100. * correct / total, correct, total))
+
+        accuracy = 100.*correct/total
+        if accuracy > best_acc:
+            print("Saving")
+            state = {
+                'net':net.module if use_cuda else net,
+                'acc' : accuracy,
+                'start_epoch' : epoch,
+            }
+            if not os.path.isdir('checkpoint'):
+                os.mkdir('checkpoint')
+            torch.save(state, './checkpoint/{}.t7'.format(args.model))
+        else:
+            counter+= 1
+            if counter >= 5:
+                break
+
+for epoch in range(start_epoch, start_epoch+200):
+    train(epoch)
+    test(epoch)
